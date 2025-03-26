@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"regexp"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -22,7 +23,7 @@ import (
 )
 
 // Version defines the app version.
-const Version = "1.0.0"
+const Version = "1.0.1"
 
 var lastAnswer string = "0"
 var isDarkTheme bool = false
@@ -149,8 +150,22 @@ func main() {
 	myWindow.ShowAndRun()
 }
 
+// Заменяет a^b на pow(a,b) для govaluate
+func replacePowers(expr string) string {
+	re := regexp.MustCompile(`(\d+(\.\d+)?|\w+)\^(\d+(\.\d+)?|\w+)`)
+	for re.MatchString(expr) {
+		expr = re.ReplaceAllStringFunc(expr, func(s string) string {
+			parts := strings.Split(s, "^")
+			if len(parts) == 2 {
+				return fmt.Sprintf("pow(%s,%s)", parts[0], parts[1])
+			}
+			return s
+		})
+	}
+	return expr
+}
 func eval(expr string, isDegrees bool) string {
-	expr = strings.ReplaceAll(expr, "ln", "log")
+	expr = replacePowers(expr)
 
 	functions := map[string]govaluate.ExpressionFunction{
 		"sin": func(args ...interface{}) (interface{}, error) {
@@ -175,7 +190,10 @@ func eval(expr string, isDegrees bool) string {
 			return math.Tan(x), nil
 		},
 		"log": func(args ...interface{}) (interface{}, error) {
-			return math.Log(toFloat(args[0])), nil
+			return math.Log10(toFloat(args[0])), nil // десятичный логарифм
+		},
+		"ln": func(args ...interface{}) (interface{}, error) {
+			return math.Log(toFloat(args[0])), nil // натуральный логарифм
 		},
 		"sqrt": func(args ...interface{}) (interface{}, error) {
 			return math.Sqrt(toFloat(args[0])), nil
@@ -187,12 +205,14 @@ func eval(expr string, isDegrees bool) string {
 
 	expression, err := govaluate.NewEvaluableExpressionWithFunctions(expr, functions)
 	if err != nil {
-		return "Ошибка: выражение"
+		fmt.Println("Ошибка разбора выражения:", err)
+		return "Ошибка ввода"
 	}
 
 	result, err := expression.Evaluate(nil)
 	if err != nil {
-		return "Ошибка: вычисление"
+		fmt.Println("Ошибка вычисления:", err)
+		return "Ошибка вычисления"
 	}
 
 	lastAnswer = fmt.Sprintf("%v", result)
@@ -206,6 +226,7 @@ func toFloat(val interface{}) float64 {
 	case int:
 		return float64(v)
 	default:
+		fmt.Printf("toFloat: неподдерживаемый тип %T\n", val)
 		return 0
 	}
 }
