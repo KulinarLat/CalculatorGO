@@ -22,7 +22,6 @@ import (
 	"github.com/Knetic/govaluate"
 )
 
-// Version defines the app version.
 const Version = "1.0.1"
 
 var lastAnswer string = "0"
@@ -150,7 +149,6 @@ func main() {
 	myWindow.ShowAndRun()
 }
 
-// Заменяет a^b на pow(a,b) для govaluate
 func replacePowers(expr string) string {
 	re := regexp.MustCompile(`(\d+(\.\d+)?|\w+)\^(\d+(\.\d+)?|\w+)`)
 	for re.MatchString(expr) {
@@ -164,6 +162,7 @@ func replacePowers(expr string) string {
 	}
 	return expr
 }
+
 func eval(expr string, isDegrees bool) string {
 	expr = replacePowers(expr)
 
@@ -190,10 +189,10 @@ func eval(expr string, isDegrees bool) string {
 			return math.Tan(x), nil
 		},
 		"log": func(args ...interface{}) (interface{}, error) {
-			return math.Log10(toFloat(args[0])), nil // десятичный логарифм
+			return math.Log10(toFloat(args[0])), nil
 		},
 		"ln": func(args ...interface{}) (interface{}, error) {
-			return math.Log(toFloat(args[0])), nil // натуральный логарифм
+			return math.Log(toFloat(args[0])), nil
 		},
 		"sqrt": func(args ...interface{}) (interface{}, error) {
 			return math.Sqrt(toFloat(args[0])), nil
