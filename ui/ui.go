@@ -1,8 +1,13 @@
 package ui
 
 import (
-	"Test/calculator"
 	"fmt"
+	"image/color"
+	"math"
+	"strings"
+
+	"Test/calculator"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
@@ -10,25 +15,70 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"image/color"
-	"math"
-	"strings"
 )
 
 var (
-	lastAnswer  string = "0"
-	isDarkTheme bool   = false
-	output      *canvas.Text
+	lastAnswer    string = "0"
+	isDarkTheme   bool   = false
+	output        *canvas.Text
+	expression    string = ""
+	wasError      bool   = false
+	historyBox    *fyne.Container
+	historyScroll *container.Scroll
+	isDegrees     bool = true
 )
+
+func handleInput(lbl string, isDarkTheme bool) {
+	if wasError && lbl != "=" && lbl != "C" && lbl != "DEL" {
+		expression = ""
+		wasError = false
+	}
+	switch lbl {
+	case "C":
+		expression = ""
+	case "DEL":
+		if len(expression) > 0 {
+			expression = expression[:len(expression)-1]
+		}
+	case "=":
+		res := calculator.Eval(expression, isDegrees)
+		col := color.RGBA{100, 100, 100, 255}
+		if isDarkTheme {
+			col = color.RGBA{255, 255, 255, 255}
+		}
+		historyEntry := canvas.NewText(expression+" = "+res, col)
+		historyEntry.TextStyle = fyne.TextStyle{Italic: true}
+		historyBox.Add(historyEntry)
+		historyScroll.ScrollToBottom()
+		if strings.HasPrefix(res, "Ошибка") {
+			wasError = true
+		} else {
+			expression = res
+			wasError = false
+		}
+	case "π":
+		expression += fmt.Sprintf("%f", math.Pi)
+	case "e":
+		expression += fmt.Sprintf("%f", math.E)
+	case "Ans":
+		expression += fmt.Sprintf("(%v)", lastAnswer)
+	case "sin", "cos", "tan", "log", "ln", "sqrt":
+		expression += lbl + "("
+	default:
+		expression += lbl
+	}
+	output.Text = expression
+	output.Refresh()
+}
 
 func StartApp() {
 	myApp := app.New()
-	myWindow := myApp.NewWindow("Инженерный калькулятор v1.0.2")
+	myWindow := myApp.NewWindow("Инженерный калькулятор v1.0.3")
 	myWindow.Resize(fyne.NewSize(400, 600))
 
-	isDegrees := true
-	expression := ""
-	wasError := false
+	isDegrees = true
+	expression = ""
+	wasError = false
 
 	modeLabel := widget.NewLabel("Режим: Degrees")
 	var toggleMode *widget.Button
@@ -43,9 +93,9 @@ func StartApp() {
 		}
 	})
 
-	historyBox := container.NewVBox()
-	historyContainer := container.NewVScroll(historyBox)
-	historyContainer.SetMinSize(fyne.NewSize(380, 120))
+	historyBox = container.NewVBox()
+	historyScroll = container.NewVScroll(historyBox)
+	historyScroll.SetMinSize(fyne.NewSize(380, 120))
 
 	var themeButton *widget.Button
 	themeButton = widget.NewButton("Тема: Светлая", func() {
@@ -92,57 +142,48 @@ func StartApp() {
 		for _, label := range row {
 			rowContainer.Add(widget.NewButton(label, func(lbl string) func() {
 				return func() {
-					if wasError && lbl != "=" && lbl != "C" && lbl != "DEL" {
-						expression = ""
-						wasError = false
-					}
-					switch lbl {
-					case "C":
-						expression = ""
-					case "DEL":
-						if len(expression) > 0 {
-							expression = expression[:len(expression)-1]
-						}
-					case "=":
-						res := calculator.Eval(expression, isDegrees)
-						col := color.RGBA{100, 100, 100, 255}
-						if isDarkTheme {
-							col = color.RGBA{255, 255, 255, 255}
-						}
-						historyEntry := canvas.NewText(expression+" = "+res, col)
-						historyEntry.TextStyle = fyne.TextStyle{Italic: true}
-						historyBox.Add(historyEntry)
-						historyContainer.ScrollToBottom()
-						if strings.HasPrefix(res, "Ошибка") {
-							wasError = true
-						} else {
-							expression = res
-							wasError = false
-						}
-					case "π":
-						expression += fmt.Sprintf("%f", math.Pi)
-					case "e":
-						expression += fmt.Sprintf("%f", math.E)
-					case "Ans":
-						expression += fmt.Sprintf("(%v)", lastAnswer)
-					case "sin", "cos", "tan", "log", "ln", "sqrt":
-						expression += lbl + "("
-					default:
-						expression += lbl
-					}
-					output.Text = expression
-					output.Refresh()
+					handleInput(lbl, isDarkTheme)
 				}
 			}(label)))
 		}
 		grid.Add(rowContainer)
 	}
 
+	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
+		switch k.Name {
+		case fyne.KeyReturn, fyne.KeyEnter:
+			handleInput("=", isDarkTheme)
+		case fyne.KeyBackspace:
+			handleInput("DEL", isDarkTheme)
+		case fyne.KeyEscape:
+			handleInput("C", isDarkTheme)
+		}
+	})
+
+	myWindow.Canvas().SetOnTypedRune(func(r rune) {
+		allowed := "0123456789.+-*/^()"
+		specialMap := map[rune]string{
+			'p': "π",
+			'e': "e",
+			's': "sin(",
+			'c': "cos(",
+			't': "tan(",
+			'l': "log(",
+			'n': "ln(",
+			'r': "sqrt(",
+		}
+		if strings.ContainsRune(allowed, r) {
+			handleInput(string(r), isDarkTheme)
+		} else if val, ok := specialMap[r]; ok {
+			handleInput(val, isDarkTheme)
+		}
+	})
+
 	myWindow.SetContent(container.NewVBox(
 		themeButton,
 		modeLabel,
 		toggleMode,
-		historyContainer,
+		historyScroll,
 		layout.NewSpacer(),
 		output,
 		grid,
