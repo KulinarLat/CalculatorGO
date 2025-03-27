@@ -27,7 +27,7 @@ This is a trial project created to explore GUI development in Go using the Fyne 
 ---
 ## 📄 License
 
-- This project is licensed under the MIT License - see the [LICENSE](https://github.com/KulinarLat/LICENSE) file for details.
+- This project is licensed under the MIT License - see the [LICENSE](https://github.com/KulinarLat/CalculatorGO/blob/master/LICENSE) file for details.
 ---
 
 ## 👤 Author
